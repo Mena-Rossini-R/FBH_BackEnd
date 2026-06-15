@@ -65,10 +65,11 @@ public class SecurityConfig {
        
         // Allowed origins updated to accept both local testing and your production Netlify app
         config.setAllowedOriginPatterns(List.of(
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-            "https://*.netlify.app" 
-        ));
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "https://*.netlify.app",
+        "https://feedback-hub07.netlify.app"
+    ));
        
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
