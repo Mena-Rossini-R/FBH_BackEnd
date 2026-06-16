@@ -54,17 +54,10 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                // 1. Explicitly allow all OPTIONS preflight requests globally
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                
-                // 2. Public endpoint access rules (including /api prefix)
                 .requestMatchers("/api/auth/**", "/auth/**", "/h2-console/**", "/template/**").permitAll()
-                
-                // 3. Role-based endpoint access rules
                 .requestMatchers("/api/trainer/**", "/trainer/**").hasRole("TRAINER")
                 .requestMatchers("/api/trainee/**", "/trainee/**").hasAnyRole("TRAINEE", "TRAINER")
-                
-                // 4. Secure all remaining requests
                 .anyRequest().authenticated()
             )
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
