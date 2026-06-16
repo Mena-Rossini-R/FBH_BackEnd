@@ -37,6 +37,8 @@ public class FeedbackThread {
 
     private boolean readByTrainee = false;
 
+    private boolean readByTrainer = false;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -51,6 +53,7 @@ public class FeedbackThread {
     public String        getMessage()         { return message; }
     public String        getSenderRole()      { return senderRole; }
     public boolean       isReadByTrainee()    { return readByTrainee; }
+    public boolean       isReadByTrainer()    { return readByTrainer; }
     public LocalDateTime getCreatedAt()       { return createdAt; }
 
     public void setId(Long id)                        { this.id           = id; }
@@ -59,5 +62,6 @@ public class FeedbackThread {
     public void setMessage(String message)            { this.message      = message; }
     public void setSenderRole(String senderRole)      { this.senderRole   = senderRole; }
     public void setReadByTrainee(boolean read)        { this.readByTrainee = read; }
+    public void setReadByTrainer(boolean read)        { this.readByTrainer = read; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt    = createdAt; }
 }

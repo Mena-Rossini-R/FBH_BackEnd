@@ -22,6 +22,15 @@ public class ActivityLogService {
 
     public List<ActivityLogDto> getRecentActivity(int limit) {
         List<ActivityLog> logs = repo.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit));
+        return toDto(logs);
+    }
+
+    public List<ActivityLogDto> getRecentActivityForTrainee(String traineeName, int limit) {
+        List<ActivityLog> logs = repo.findByTargetEntityOrderByCreatedAtDesc(traineeName, PageRequest.of(0, limit));
+        return toDto(logs);
+    }
+
+    private List<ActivityLogDto> toDto(List<ActivityLog> logs) {
         List<ActivityLogDto> result = new ArrayList<>();
         for (ActivityLog a : logs) {
             ActivityLogDto dto = new ActivityLogDto();

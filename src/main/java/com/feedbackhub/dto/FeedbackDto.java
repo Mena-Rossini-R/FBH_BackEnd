@@ -24,6 +24,7 @@ public class FeedbackDto {
         private String        senderRole;
         private String        message;
         private boolean       readByTrainee;
+        private boolean       readByTrainer;
         private LocalDateTime createdAt;
         public Response() {}
         public Long          getId()              { return id; }
@@ -33,6 +34,7 @@ public class FeedbackDto {
         public String        getSenderRole()      { return senderRole; }
         public String        getMessage()         { return message; }
         public boolean       isReadByTrainee()    { return readByTrainee; }
+        public boolean       isReadByTrainer()    { return readByTrainer; }
         public LocalDateTime getCreatedAt()       { return createdAt; }
         public void setId(Long id)                              { this.id              = id; }
         public void setScoreId(Long scoreId)                    { this.scoreId         = scoreId; }
@@ -41,6 +43,7 @@ public class FeedbackDto {
         public void setSenderRole(String senderRole)            { this.senderRole      = senderRole; }
         public void setMessage(String message)                  { this.message         = message; }
         public void setReadByTrainee(boolean readByTrainee)     { this.readByTrainee   = readByTrainee; }
+        public void setReadByTrainer(boolean readByTrainer)     { this.readByTrainer   = readByTrainer; }
         public void setCreatedAt(LocalDateTime createdAt)       { this.createdAt       = createdAt; }
     }
 }

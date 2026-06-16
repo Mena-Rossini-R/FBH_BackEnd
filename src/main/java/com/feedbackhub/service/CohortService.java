@@ -2,7 +2,6 @@ package com.feedbackhub.service;
 
 import com.feedbackhub.dto.CohortDto;
 import com.feedbackhub.dto.UserDto;
-import com.feedbackhub.entity.CohortUploadRecord;
 import com.feedbackhub.entity.User;
 import com.feedbackhub.enums.UserRole;
 import com.feedbackhub.repository.UserRepository;
@@ -16,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -25,12 +25,117 @@ public class CohortService {
     @Autowired private PasswordEncoder  encoder;
     @Autowired private ActivityLogService logService;
 
-    /**
-     * Upload Excel → create trainee accounts → assign to cohort/pod
-     *
-     * Expected columns (any order, detected by header):
-     * name/fullName, email, cohort, pod, [phone/contact], [department]
-     */
+    // ── Structure ────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public CohortDto.Structure getStructure() {
+        List<User> all = userRepo.findAllTraineesOrdered();
+
+        // Group by cohort → pod
+        Map<String, Map<String, List<User>>> cohortPodMap = new LinkedHashMap<>();
+        List<User> unassigned = new ArrayList<>();
+
+        for (User u : all) {
+            String cohort = u.getCohortName();
+            String pod    = u.getPodName();
+            if (cohort == null || cohort.isBlank() || pod == null || pod.isBlank()) {
+                unassigned.add(u);
+                continue;
+            }
+            cohortPodMap.computeIfAbsent(cohort, k -> new LinkedHashMap<>())
+                        .computeIfAbsent(pod, k -> new ArrayList<>())
+                        .add(u);
+        }
+
+        List<CohortDto.CohortInfo> cohorts = new ArrayList<>();
+        for (Map.Entry<String, Map<String, List<User>>> ce : cohortPodMap.entrySet()) {
+            CohortDto.CohortInfo ci = new CohortDto.CohortInfo();
+            ci.setCohortName(ce.getKey());
+            List<CohortDto.PodInfo> pods = new ArrayList<>();
+            int total = 0;
+            for (Map.Entry<String, List<User>> pe : ce.getValue().entrySet()) {
+                CohortDto.PodInfo pi = new CohortDto.PodInfo();
+                pi.setPodName(pe.getKey());
+                pi.setStudents(pe.getValue().stream().map(this::toStudentInfo).collect(Collectors.toList()));
+                pods.add(pi);
+                total += pe.getValue().size();
+            }
+            ci.setPods(pods);
+            ci.setStudentCount(total);
+            cohorts.add(ci);
+        }
+
+        CohortDto.Structure structure = new CohortDto.Structure();
+        structure.setCohorts(cohorts);
+        structure.setUnassigned(unassigned.stream().map(this::toStudentInfo).collect(Collectors.toList()));
+        return structure;
+    }
+
+    // ── Add new trainee ──────────────────────────────────────────────────────
+
+    public CohortDto.StudentInfo addTrainee(CohortDto.AddTraineeRequest req, String trainerEmail) {
+        if (req.getEmail() == null || req.getEmail().isBlank())
+            throw new IllegalArgumentException("Email is required");
+        if (req.getFullName() == null || req.getFullName().isBlank())
+            throw new IllegalArgumentException("Full name is required");
+        if (userRepo.existsByEmail(req.getEmail()))
+            throw new IllegalArgumentException("Email already exists: " + req.getEmail());
+
+        User u = new User();
+        u.setFullName(req.getFullName().trim());
+        u.setEmail(req.getEmail().trim().toLowerCase());
+        u.setPassword(encoder.encode("password@123"));
+        u.setRole(UserRole.TRAINEE);
+        u.setCohortName(req.getCohortName());
+        u.setPodName(req.getPodName());
+        u.setPhone(req.getPhone());
+        u.setDepartment(req.getDepartment());
+        u.setActive(true);
+        u = userRepo.save(u);
+
+        logService.log("TRAINEE_ADDED", "New trainee added: " + u.getFullName()
+                + " → " + req.getPodName(), trainerEmail, u.getFullName());
+        return toStudentInfo(u);
+    }
+
+    // ── Assign (or move) existing student to a pod ───────────────────────────
+
+    public CohortDto.StudentInfo assignStudent(CohortDto.AssignRequest req, String trainerEmail) {
+        User u = userRepo.findById(req.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + req.getUserId()));
+        String oldPod = u.getPodName();
+        u.setPodName(req.getPodName());
+        u.setCohortName(req.getCohortName());
+        userRepo.save(u);
+
+        logService.log("TRAINEE_ASSIGNED", "Moved " + u.getFullName()
+                + " from " + oldPod + " → " + req.getPodName(), trainerEmail, u.getFullName());
+        return toStudentInfo(u);
+    }
+
+    // ── Remove student from pod (keep account, clear pod/cohort) ─────────────
+
+    public void removeFromPod(Long userId, String trainerEmail) {
+        User u = userRepo.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+        String pod = u.getPodName();
+        u.setPodName(null);
+        u.setCohortName(null);
+        userRepo.save(u);
+        logService.log("TRAINEE_REMOVED", "Removed " + u.getFullName() + " from pod " + pod,
+                trainerEmail, u.getFullName());
+    }
+
+    // ── Unassigned trainees ──────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<CohortDto.StudentInfo> getUnassigned() {
+        return userRepo.findUnassignedTrainees().stream()
+                .map(this::toStudentInfo).collect(Collectors.toList());
+    }
+
+    // ── Excel upload ─────────────────────────────────────────────────────────
+
     public CohortDto.UploadResult uploadCohort(MultipartFile file, String trainerEmail) {
         CohortDto.UploadResult result = new CohortDto.UploadResult();
         List<UserDto.Response> created = new ArrayList<>();
@@ -43,7 +148,6 @@ public class CohortService {
             Sheet sheet = wb.getSheetAt(0);
             Map<String, Integer> cols = new HashMap<>();
 
-            // Detect header row
             int headerRow = 0;
             for (int r = 0; r <= Math.min(2, sheet.getLastRowNum()); r++) {
                 Row row = sheet.getRow(r);
@@ -60,7 +164,6 @@ public class CohortService {
                 if (cols.containsKey("email")) { headerRow = r; break; }
             }
 
-            // Fallback positional
             if (!cols.containsKey("name"))   cols.put("name",   0);
             if (!cols.containsKey("email"))  cols.put("email",  1);
             if (!cols.containsKey("cohort")) cols.put("cohort", 2);
@@ -75,10 +178,8 @@ public class CohortService {
                     if (email.isEmpty()) { errors.add("Row " + (i+1) + ": email missing"); continue; }
                     if (name.isEmpty())  { errors.add("Row " + (i+1) + ": name missing");  continue; }
 
-                    // Check if already exists
                     if (userRepo.findByEmail(email).isPresent()) {
                         User u = userRepo.findByEmail(email).get();
-                        // Update cohort/pod if given
                         String cohort = cellStr(row, cols.getOrDefault("cohort", -1));
                         String pod    = cellStr(row, cols.getOrDefault("pod",    -1));
                         if (!cohort.isEmpty()) u.setCohortName(cohort);
@@ -91,7 +192,7 @@ public class CohortService {
                     User u = new User();
                     u.setFullName(name);
                     u.setEmail(email);
-                    u.setPassword(encoder.encode("password")); // default password
+                    u.setPassword(encoder.encode("password@123"));
                     u.setRole(UserRole.TRAINEE);
                     u.setCohortName(cellStr(row, cols.getOrDefault("cohort", -1)));
                     u.setPodName(cellStr(row, cols.getOrDefault("pod", -1)));
@@ -122,13 +223,19 @@ public class CohortService {
         return result;
     }
 
-    // Get all trainees grouped by cohort/pod
     @Transactional(readOnly = true)
     public List<UserDto.Response> getTrainees() {
-        List<User> users = userRepo.findByRole(UserRole.TRAINEE);
-        List<UserDto.Response> result = new ArrayList<>();
-        for (User u : users) result.add(toUserDto(u));
-        return result;
+        return userRepo.findByRole(UserRole.TRAINEE).stream()
+                .map(this::toUserDto).collect(Collectors.toList());
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private CohortDto.StudentInfo toStudentInfo(User u) {
+        CohortDto.StudentInfo s = new CohortDto.StudentInfo();
+        s.setId(u.getId()); s.setFullName(u.getFullName());
+        s.setEmail(u.getEmail()); s.setPhone(u.getPhone());
+        s.setDepartment(u.getDepartment()); return s;
     }
 
     private String cellStr(Row row, int col) {
@@ -150,13 +257,10 @@ public class CohortService {
 
     private UserDto.Response toUserDto(User u) {
         UserDto.Response dto = new UserDto.Response();
-        dto.setId(u.getId());
-        dto.setFullName(u.getFullName());
-        dto.setEmail(u.getEmail());
-        dto.setRole(u.getRole().name());
-        dto.setPodName(u.getPodName());
-        dto.setCohortName(u.getCohortName());
-        dto.setActive(u.isActive());
-        return dto;
+        dto.setId(u.getId()); dto.setFullName(u.getFullName());
+        dto.setEmail(u.getEmail()); dto.setRole(u.getRole().name());
+        dto.setPodName(u.getPodName()); dto.setCohortName(u.getCohortName());
+        dto.setActive(u.isActive()); return dto;
     }
 }
+

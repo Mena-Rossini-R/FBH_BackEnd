@@ -30,6 +30,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT DISTINCT u.cohortName FROM User u WHERE u.cohortName IS NOT NULL")
     List<String> findDistinctCohorts();
 
-    @Query("SELECT DISTINCT u.podName FROM User u WHERE u.podName IS NOT NULL")
-    List<String> findDistinctPods();
+    @Query("SELECT u FROM User u WHERE u.role = 'TRAINEE' AND (u.podName IS NULL OR u.podName = '') ORDER BY u.fullName")
+    List<User> findUnassignedTrainees();
 }

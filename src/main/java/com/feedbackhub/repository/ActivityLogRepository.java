@@ -13,4 +13,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
 
     @Query("SELECT a FROM ActivityLog a WHERE a.performedBy = :performedBy ORDER BY a.createdAt DESC")
     List<ActivityLog> findByPerformedByOrderByCreatedAtDesc(@Param("performedBy") String performedBy);
+
+    @Query("SELECT a FROM ActivityLog a WHERE a.targetEntity = :targetEntity ORDER BY a.createdAt DESC")
+    List<ActivityLog> findByTargetEntityOrderByCreatedAtDesc(@Param("targetEntity") String targetEntity, Pageable pageable);
 }

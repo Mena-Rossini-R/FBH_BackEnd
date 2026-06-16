@@ -7,6 +7,8 @@ public class UserDto {
         private boolean active;
         private double latestScore;
         private String trendDirection;
+        private String aiFeedback;
+        private String skillsGap;
 
         public Response() {
         }
@@ -98,6 +100,11 @@ public class UserDto {
         public void setTrendDirection(String v) {
             this.trendDirection = v;
         }
+
+        public String getAiFeedback() { return aiFeedback; }
+        public String getSkillsGap()  { return skillsGap; }
+        public void setAiFeedback(String v) { this.aiFeedback = v; }
+        public void setSkillsGap(String v)  { this.skillsGap = v; }
     }
 
     public void setId(Long id) {
@@ -119,4 +126,5 @@ public class UserDto {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'setLatestScore'");
     }
+    
 }

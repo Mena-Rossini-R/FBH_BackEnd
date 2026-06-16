@@ -14,23 +14,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
 public class FeedbackService {
 
-    @Autowired
-    private FeedbackThreadRepository threadRepo;
-
-    @Autowired
-    private ScoreRepository scoreRepo;
-
-    @Autowired
-    private UserRepository userRepo;
-
-    @Autowired
-    private ActivityLogService logService;
+    @Autowired private FeedbackThreadRepository threadRepo;
+    @Autowired private ScoreRepository scoreRepo;
+    @Autowired private UserRepository userRepo;
+    @Autowired private ActivityLogService logService;
 
     public FeedbackDto.Response addMessage(FeedbackDto.Request req, String senderEmail) {
         Score score = scoreRepo.findById(req.getScoreId())
@@ -38,16 +33,18 @@ public class FeedbackService {
         User sender = userRepo.findByEmail(senderEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        boolean isTrainer = sender.getRole().name().equals("TRAINER");
+
         FeedbackThread thread = new FeedbackThread();
         thread.setScore(score);
         thread.setSender(sender);
         thread.setMessage(req.getMessage());
         thread.setSenderRole(sender.getRole().name());
-        thread.setReadByTrainee(sender.getRole().name().equals("TRAINEE"));
+        thread.setReadByTrainee(!isTrainer); // trainee has already read their own message
+        thread.setReadByTrainer(isTrainer);  // trainer has already read their own message
         thread = threadRepo.save(thread);
 
-        // Mark score feedback as viewed if trainee is reading
-        if (sender.getRole().name().equals("TRAINEE")) {
+        if (!isTrainer) {
             score.setFeedbackStatus(FeedbackStatus.VIEWED);
             scoreRepo.save(score);
         }
@@ -67,14 +64,35 @@ public class FeedbackService {
         return result;
     }
 
-    public void markViewed(Long scoreId, String traineeEmail) {
+    public void markReadByTrainee(Long scoreId, String traineeEmail) {
         Score score = scoreRepo.findById(scoreId)
                 .orElseThrow(() -> new ResourceNotFoundException("Score not found"));
         score.setFeedbackStatus(FeedbackStatus.VIEWED);
         scoreRepo.save(score);
+        threadRepo.markReadByTraineeForScore(scoreId);
         logService.log("FEEDBACK_VIEWED",
                 traineeEmail + " viewed feedback for " + score.getAssignmentName(),
                 traineeEmail, score.getTrainee().getFullName());
+    }
+
+    public void markReadByTrainer(Long scoreId) {
+        threadRepo.markReadByTrainerForScore(scoreId);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getUnreadCountsForTrainer(String trainerEmail) {
+        List<Object[]> rows = threadRepo.countUnreadForTrainer(trainerEmail);
+        Map<Long, Long> result = new HashMap<>();
+        for (Object[] row : rows) { result.put((Long) row[0], (Long) row[1]); }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getUnreadCountsForTrainee(String traineeEmail) {
+        List<Object[]> rows = threadRepo.countUnreadForTrainee(traineeEmail);
+        Map<Long, Long> result = new HashMap<>();
+        for (Object[] row : rows) { result.put((Long) row[0], (Long) row[1]); }
+        return result;
     }
 
     private FeedbackDto.Response toResponse(FeedbackThread t) {
@@ -86,6 +104,7 @@ public class FeedbackService {
         dto.setSenderRole(t.getSenderRole());
         dto.setMessage(t.getMessage());
         dto.setReadByTrainee(t.isReadByTrainee());
+        dto.setReadByTrainer(t.isReadByTrainer());
         dto.setCreatedAt(t.getCreatedAt());
         return dto;
     }

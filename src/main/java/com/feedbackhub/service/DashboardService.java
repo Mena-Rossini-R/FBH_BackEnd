@@ -106,7 +106,7 @@ public class DashboardService {
         dto.setTotalAssignments((long) scores.size() + 4); // upcoming slots
         dto.setPendingFeedback(pendingFeedback);
         dto.setWeeklyTrend(weeklyTrend);
-        dto.setRecentActivity(logService.getRecentActivity(6));
+        dto.setRecentActivity(logService.getRecentActivityForTrainee(trainee.getFullName(), 6));
         return dto;
     }
 }
