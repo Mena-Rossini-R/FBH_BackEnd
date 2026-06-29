@@ -44,8 +44,8 @@ public class DataSeeder implements CommandLineRunner {
 
         // Trainees
         User t1 = new User();
-        t1.setFullName("Ravi Kumar");
-        t1.setEmail("ravi@fh.com");
+        t1.setFullName("Balaji");
+        t1.setEmail("balaji@fh.com");
         t1.setPassword(encoder.encode("password"));
         t1.setRole(UserRole.TRAINEE);
         t1.setPodName("Pod C");
