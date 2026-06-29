@@ -1,0 +1,1 @@
+UPDATE users SET full_name = 'Balaji', email = 'balaji@fh.com' WHERE email = 'ravi@fh.com';
