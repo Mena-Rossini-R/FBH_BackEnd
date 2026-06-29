@@ -93,7 +93,7 @@ public class DataSeeder implements CommandLineRunner {
         t5.setActive(true);
         t5 = userRepo.save(t5);
 
-        // Scores for Ravi
+        // Scores for Balaji
         String[] assignments = {"Sprint Planning Review","API Design","Unit Test Coverage","Code Review","Standup Observation","Sprint Retrospective","Design Patterns Quiz","Peer Review Task"};
         double[] rScores     = {82, 78, 44, 75, 88, 70, 58, 72};
         String[] categories  = {"Project Mgmt","Technical","Testing","Technical","Communication","Process","Technical","Collaboration"};

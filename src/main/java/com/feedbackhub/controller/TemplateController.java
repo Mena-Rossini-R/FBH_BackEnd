@@ -18,7 +18,7 @@ public class TemplateController {
         try {
             byte[] file = buildExcel(
                 new String[]{"name", "email", "category", "assignment", "score", "grade", "weekLabel"},
-                new String[]{"Ravi Kumar", "ravi@fh.com", "Technical", "Sprint Review W3", "78", "B+", "W3"}
+                new String[]{"Balaji", "balaji@fh.com", "Technical", "Sprint Review W3", "78", "B+", "W3"}
             );
             return ResponseEntity.ok()
                     .header("Content-Disposition", "attachment; filename=score-upload-template.xlsx")
@@ -34,7 +34,7 @@ public class TemplateController {
         try {
             byte[] file = buildExcel(
                 new String[]{"name", "email", "cohort", "pod", "phone", "department"},
-                new String[]{"Ravi Kumar", "ravi@company.com", "Cohort 12", "Pod A", "9876543210", "Engineering"}
+                new String[]{"Balaji", "balaji@company.com", "Cohort 12", "Pod A", "9876543210", "Engineering"}
             );
             return ResponseEntity.ok()
                     .header("Content-Disposition", "attachment; filename=cohort-upload-template.xlsx")
